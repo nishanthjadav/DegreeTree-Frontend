@@ -3,8 +3,7 @@ import { useState, useMemo } from 'react';
 const CourseSelector = ({ 
   courses, 
   selectedCourses, 
-  onCourseSelectionChange, 
-  onCheckEligibility,
+  onCourseSelectionChange,
   isLoading 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -126,7 +125,7 @@ const CourseSelector = ({
         </div>
         
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-96 overflow-y-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-96 overflow-y-auto">
             {filteredCourses.map(course => (
               <div
                 key={course.courseCode}
@@ -202,30 +201,26 @@ const CourseSelector = ({
         )}
       </div>
 
-      {/* Check eligibility button */}
+      {/* Live update status */}
       <div className="pt-4 border-t border-slate-200">
-        <button
-          onClick={onCheckEligibility}
-          disabled={selectedCourses.length === 0 || isLoading}
-          className="btn-primary w-full flex items-center justify-center space-x-2"
-        >
+        <div className="w-full flex items-center justify-center space-x-2 py-3 px-6 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
           {isLoading ? (
             <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span>Analyzing Prerequisites...</span>
+              <span className="text-green-700 font-medium">Updating eligibility...</span>
             </>
           ) : (
             <>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>Check Course Eligibility</span>
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-green-700 font-medium">
+                {selectedCourses.length === 0 ? "Select courses to see eligibility" : "Live updating enabled"}
+              </span>
             </>
           )}
-        </button>
+        </div>
       </div>
     </div>
   );

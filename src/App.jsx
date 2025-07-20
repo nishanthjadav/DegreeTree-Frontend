@@ -40,34 +40,36 @@ function App() {
 
   const handleCourseSelectionChange = (newSelection) => {
     setSelectedCourses(newSelection);
-    // Reset eligibility check when selection changes
-    if (hasCheckedEligibility) {
-      setHasCheckedEligibility(false);
-      setEligibleCourses([]);
-    }
   };
 
-  const handleCheckEligibility = async () => {
-    try {
-      setIsCheckingEligibility(true);
-      setError(null);
+  // Automatically check eligibility whenever selected courses change (with debounce)
+  useEffect(() => {
+    const debounceTimer = setTimeout(async () => {
+      if (courses.length === 0) return; // Wait for courses to load
       
-      const eligible = await courseApi.checkEligibility(selectedCourses);
-      
-      // Filter out courses that the user has already completed
-      const filteredEligibleCourses = eligible.filter(course => 
-        !selectedCourses.includes(course.courseCode)
-      );
-      
-      setEligibleCourses(filteredEligibleCourses);
-      setHasCheckedEligibility(true);
-    } catch (error) {
-      setError('Failed to check eligibility. Please ensure the backend is running and try again.');
-      console.error('Error checking eligibility:', error);
-    } finally {
-      setIsCheckingEligibility(false);
-    }
-  };
+      try {
+        setIsCheckingEligibility(true);
+        setError(null);
+        
+        const eligible = await courseApi.checkEligibility(selectedCourses);
+        
+        // Filter out courses that the user has already completed
+        const filteredEligibleCourses = eligible.filter(course => 
+          !selectedCourses.includes(course.courseCode)
+        );
+        
+        setEligibleCourses(filteredEligibleCourses);
+        setHasCheckedEligibility(true);
+      } catch (error) {
+        setError('Failed to check eligibility. Please ensure the backend is running and try again.');
+        console.error('Error checking eligibility:', error);
+      } finally {
+        setIsCheckingEligibility(false);
+      }
+    }, 300); // 300ms debounce to prevent excessive API calls
+
+    return () => clearTimeout(debounceTimer);
+  }, [selectedCourses, courses]); // Run whenever selectedCourses or courses change
 
   if (isLoadingCourses) {
     return (
@@ -170,15 +172,9 @@ function App() {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="mx-auto px-4 sm:px-6 lg:px-8 py-8" style={{ maxWidth: "1600px" }}>
         {/* Course Stats Header */}
         <div className="mb-8 text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">
-            Smart Course Planning
-          </h2>
-          <p className="text-slate-600 max-w-2xl mx-auto">
-            Leverage our Neo4j-powered prerequisite engine to discover exactly which courses you're eligible to take next.
-          </p>
           <div className="mt-4 flex items-center justify-center space-x-6 text-sm text-slate-500">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -193,28 +189,36 @@ function App() {
               <span>Completed</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                <span className="text-purple-600 font-semibold">{eligibleCourses.length}</span>
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 ${
+                isCheckingEligibility ? 'bg-blue-100' : 'bg-purple-100'
+              }`}>
+                {isCheckingEligibility ? (
+                  <svg className="animate-spin h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <span className="text-purple-600 font-semibold">{eligibleCourses.length}</span>
+                )}
               </div>
-              <span>Eligible Next</span>
+              <span>{isCheckingEligibility ? 'Updating...' : 'Eligible Next'}</span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
-          {/* Course Selector Section */}
-          <div className="xl:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-8 gap-8">
+          {/* Course Selector Section - Wider to fit 3 courses per row */}
+          <div className="xl:col-span-3">
             <CourseSelector
               courses={courses}
               selectedCourses={selectedCourses}
               onCourseSelectionChange={handleCourseSelectionChange}
-              onCheckEligibility={handleCheckEligibility}
               isLoading={isCheckingEligibility}
             />
           </div>
 
-          {/* Eligible Courses Section */}
-          <div className="xl:col-span-3">
+          {/* Eligible Courses Section - Wider to fit 4 courses per row */}
+          <div className="xl:col-span-5">
             <EligibleCoursesGrid
               eligibleCourses={eligibleCourses}
               isLoading={isCheckingEligibility}

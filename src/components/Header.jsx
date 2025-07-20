@@ -13,11 +13,9 @@ const Header = () => {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
-                Course Planner
+                Degree Tree
               </h1>
-              <p className="text-blue-100 text-sm">
-                Smart prerequisite tracking & course planning
-              </p>
+
             </div>
           </div>
         </div>
