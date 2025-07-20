@@ -40,36 +40,37 @@ function App() {
 
   const handleCourseSelectionChange = (newSelection) => {
     setSelectedCourses(newSelection);
+    // Reset eligibility state when courses change
+    if (hasCheckedEligibility) {
+      setHasCheckedEligibility(false);
+      setEligibleCourses([]);
+    }
   };
 
-  // Automatically check eligibility whenever selected courses change (with debounce)
-  useEffect(() => {
-    const debounceTimer = setTimeout(async () => {
-      if (courses.length === 0) return; // Wait for courses to load
+  // Manual function to check course eligibility (only runs when button is clicked)
+  const checkEligibility = async () => {
+    if (courses.length === 0) return; // Wait for courses to load
+    
+    try {
+      setIsCheckingEligibility(true);
+      setError(null);
       
-      try {
-        setIsCheckingEligibility(true);
-        setError(null);
-        
-        const eligible = await courseApi.checkEligibility(selectedCourses);
-        
-        // Filter out courses that the user has already completed
-        const filteredEligibleCourses = eligible.filter(course => 
-          !selectedCourses.includes(course.courseCode)
-        );
-        
-        setEligibleCourses(filteredEligibleCourses);
-        setHasCheckedEligibility(true);
-      } catch (error) {
-        setError('Failed to check eligibility. Please ensure the backend is running and try again.');
-        console.error('Error checking eligibility:', error);
-      } finally {
-        setIsCheckingEligibility(false);
-      }
-    }, 300); // 300ms debounce to prevent excessive API calls
-
-    return () => clearTimeout(debounceTimer);
-  }, [selectedCourses, courses]); // Run whenever selectedCourses or courses change
+      const eligible = await courseApi.checkEligibility(selectedCourses);
+      
+      // Filter out courses that the user has already completed
+      const filteredEligibleCourses = eligible.filter(course => 
+        !selectedCourses.includes(course.courseCode)
+      );
+      
+      setEligibleCourses(filteredEligibleCourses);
+      setHasCheckedEligibility(true);
+    } catch (error) {
+      setError('Failed to check eligibility. Please ensure the backend is running and try again.');
+      console.error('Error checking eligibility:', error);
+    } finally {
+      setIsCheckingEligibility(false);
+    }
+  };
 
   if (isLoadingCourses) {
     return (
@@ -201,7 +202,7 @@ function App() {
                   <span className="text-purple-600 font-semibold">{eligibleCourses.length}</span>
                 )}
               </div>
-              <span>{isCheckingEligibility ? 'Updating...' : 'Eligible Next'}</span>
+              <span>{isCheckingEligibility ? 'Checking...' : (hasCheckedEligibility ? 'Eligible Next' : 'Click to Check')}</span>
             </div>
           </div>
         </div>
@@ -213,6 +214,7 @@ function App() {
               courses={courses}
               selectedCourses={selectedCourses}
               onCourseSelectionChange={handleCourseSelectionChange}
+              onCheckEligibility={checkEligibility}
               isLoading={isCheckingEligibility}
             />
           </div>

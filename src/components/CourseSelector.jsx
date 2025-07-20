@@ -4,6 +4,7 @@ const CourseSelector = ({
   courses, 
   selectedCourses, 
   onCourseSelectionChange,
+  onCheckEligibility,
   isLoading 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -201,26 +202,38 @@ const CourseSelector = ({
         )}
       </div>
 
-      {/* Live update status */}
+      {/* Check Eligibility Button */}
       <div className="pt-4 border-t border-slate-200">
-        <div className="w-full flex items-center justify-center space-x-2 py-3 px-6 rounded-xl bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200">
+        <button
+          onClick={onCheckEligibility}
+          disabled={selectedCourses.length === 0 || isLoading}
+          className={`w-full flex items-center justify-center space-x-2 py-3 px-6 rounded-xl font-medium transition-all duration-200 ${
+            selectedCourses.length === 0 || isLoading
+              ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+              : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transform hover:scale-[1.02]'
+          }`}
+        >
           {isLoading ? (
             <>
-              <svg className="animate-spin h-5 w-5 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              <span className="text-green-700 font-medium">Updating eligibility...</span>
+              <span>Checking Eligibility...</span>
             </>
           ) : (
             <>
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-green-700 font-medium">
-                {selectedCourses.length === 0 ? "Select courses to see eligibility" : "Live updating enabled"}
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>
+                {selectedCourses.length === 0 
+                  ? "Select courses to check eligibility" 
+                  : `Check Course Eligibility`}
               </span>
             </>
           )}
-        </div>
+        </button>
       </div>
     </div>
   );

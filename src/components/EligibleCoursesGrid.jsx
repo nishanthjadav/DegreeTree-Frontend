@@ -8,6 +8,8 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
   const [isLoadingRelationships, setIsLoadingRelationships] = useState(false);
   const [allCompletedCourses, setAllCompletedCourses] = useState([]);
   const [selectedCourseForDetails, setSelectedCourseForDetails] = useState(null);
+  const [selectedCoursePrerequisites, setSelectedCoursePrerequisites] = useState(null);
+  const [isLoadingPrerequisites, setIsLoadingPrerequisites] = useState(false);
   
   useEffect(() => {
     // Debugging log to see what data we're working with
@@ -58,6 +60,7 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
     const handleEscape = (e) => {
       if (e.key === 'Escape' && selectedCourseForDetails) {
         setSelectedCourseForDetails(null);
+        setSelectedCoursePrerequisites(null);
       }
     };
 
@@ -130,7 +133,52 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
     return edges;
   };
 
-  if (!hasChecked && selectedCourses.length === 0) {
+  // Function to convert prerequisite tree to readable logical statement
+  const convertPrerequisiteTreeToString = (prerequisiteTree, isRoot = true) => {
+    if (!prerequisiteTree) return 'No prerequisites';
+    
+    // If it's a leaf node (course)
+    if (prerequisiteTree.courseCode) {
+      return prerequisiteTree.courseCode;
+    }
+    
+    // If it has children (AND/OR node)
+    if (prerequisiteTree.children && prerequisiteTree.children.length > 0) {
+      const childStrings = prerequisiteTree.children.map(child => 
+        convertPrerequisiteTreeToString(child, false)
+      );
+      
+      if (prerequisiteTree.type === 'AND') {
+        // Join with 'and' and wrap in parentheses only if not root and more than one child
+        return childStrings.length > 1 
+          ? (isRoot ? childStrings.join(' and ') : `(${childStrings.join(' and ')})`)
+          : childStrings[0];
+      } else if (prerequisiteTree.type === 'OR') {
+        // Join with 'or' and wrap in parentheses only if not root and more than one child
+        return childStrings.length > 1 
+          ? (isRoot ? childStrings.join(' or ') : `(${childStrings.join(' or ')})`)
+          : childStrings[0];
+      }
+    }
+    
+    return 'No prerequisites';
+  };
+
+  // Fetch prerequisite tree for selected course
+  const fetchCoursePrerequisites = async (courseCode) => {
+    setIsLoadingPrerequisites(true);
+    try {
+      const prereqTree = await courseApi.getCoursePrerequisiteTree(courseCode);
+      setSelectedCoursePrerequisites(prereqTree);
+    } catch (error) {
+      console.warn(`Could not get prerequisite tree for ${courseCode}:`, error);
+      setSelectedCoursePrerequisites(null);
+    } finally {
+      setIsLoadingPrerequisites(false);
+    }
+  };
+
+  if (!hasChecked) {
     return (
       <div className="card text-center">
         <div className="py-12">
@@ -139,16 +187,11 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 className="text-xl font-semibold text-slate-900 mb-3">Live Course Planner</h3>
+          <h3 className="text-xl font-semibold text-slate-900 mb-3">Course Eligibility Checker</h3>
           <p className="text-slate-600 max-w-md mx-auto leading-relaxed">
-            Select your completed courses from the left panel and see eligible courses update instantly! No button clicking required.
+            Select your completed courses from the left panel, then click "Check Course Eligibility" to see what courses you can take next.
           </p>
-          <div className="mt-6 flex items-center justify-center space-x-2 text-sm text-slate-500">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span>Powered by Neo4j Graph Database</span>
-          </div>
+
         </div>
       </div>
     );
@@ -248,7 +291,7 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
               </span>
             </h2>
             <p className="card-subtitle">
-              {isLoading ? 'Updating eligibility in real-time...' : 'Courses you can enroll in based on your completed prerequisites'}
+              {isLoading ? 'Checking course eligibility...' : 'Courses you can enroll in based on your completed prerequisites'}
             </p>
           </div>
           
@@ -303,7 +346,10 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
           }).map(course => (
             <div 
               key={course.courseCode} 
-              onClick={() => setSelectedCourseForDetails(course)}
+              onClick={() => {
+                setSelectedCourseForDetails(course);
+                fetchCoursePrerequisites(course.courseCode);
+              }}
               className="group bg-gradient-to-br from-emerald-50 to-teal-50 hover:from-emerald-100 hover:to-teal-100 border-2 border-emerald-200 hover:border-emerald-300 rounded-2xl p-5 transition-all duration-300 cursor-pointer transform hover:scale-105"
             >
               <div className="flex items-start space-x-3">
@@ -365,6 +411,7 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
                                   eligibleCourses?.find(c => c.courseCode === courseCode);
               if (clickedCourse) {
                 setSelectedCourseForDetails(clickedCourse);
+                fetchCoursePrerequisites(courseCode);
               }
             }}
           />
@@ -375,17 +422,23 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
       {selectedCourseForDetails && (
         <div 
           className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setSelectedCourseForDetails(null)}
+          onClick={() => {
+            setSelectedCourseForDetails(null);
+            setSelectedCoursePrerequisites(null);
+          }}
         >
           <div 
-            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[50vh] overflow-hidden border border-slate-200"
+            className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[70vh] overflow-y-auto border border-slate-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
             <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white relative">
               <div className="absolute top-3 right-3">
                 <button
-                  onClick={() => setSelectedCourseForDetails(null)}
+                  onClick={() => {
+                    setSelectedCourseForDetails(null);
+                    setSelectedCoursePrerequisites(null);
+                  }}
                   className="p-1 hover:bg-white/20 rounded-lg transition-colors"
                 >
                   <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -407,7 +460,7 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
             <div className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Course Description */}
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-3 space-y-6">
                   {selectedCourseForDetails.courseDescription && (
                     <div>
                       <h3 className="text-base font-semibold text-slate-900 mb-2">Description</h3>
@@ -416,6 +469,26 @@ const EligibleCoursesGrid = ({ eligibleCourses, isLoading, hasChecked, courses, 
                       </p>
                     </div>
                   )}
+                  
+                  {/* Prerequisites Section */}
+                  <div>
+                    <h3 className="text-base font-semibold text-slate-900 mb-2">Prerequisites</h3>
+                    {isLoadingPrerequisites ? (
+                      <div className="flex items-center space-x-2 text-slate-500">
+                        <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span className="text-sm">Loading prerequisites...</span>
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+                        <p className="text-slate-700 text-sm font-mono">
+                          {convertPrerequisiteTreeToString(selectedCoursePrerequisites)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Quick Stats */}
