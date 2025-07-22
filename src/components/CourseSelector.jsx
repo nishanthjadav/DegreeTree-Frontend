@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
+import { useTheme } from '../contexts/ThemeContext';
 
 const CourseSelector = ({ 
   courses, 
@@ -7,16 +8,48 @@ const CourseSelector = ({
   onCheckEligibility,
   isLoading 
 }) => {
+  const { isDarkMode } = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
 
+  // Reusable sorting function for course codes
+  const sortCoursesByDepartmentAndNumber = useCallback((courses) => {
+    return courses.sort((a, b) => {
+      // Extract department and number from course codes (e.g., "CSC 1300" -> ["CSC", "1300"])
+      const parseCode = (code) => {
+        const parts = code.split(' ');
+        return {
+          department: parts[0] || '',
+          number: parseInt(parts[1]) || 0
+        };
+      };
+
+      const courseA = parseCode(typeof a === 'string' ? a : a.courseCode);
+      const courseB = parseCode(typeof b === 'string' ? b : b.courseCode);
+
+      // First sort by department alphabetically
+      if (courseA.department !== courseB.department) {
+        return courseA.department.localeCompare(courseB.department);
+      }
+
+      // Then sort by course number within the same department
+      return courseA.number - courseB.number;
+    });
+  }, []);
+
   const filteredCourses = useMemo(() => {
-    if (!searchTerm) return courses;
-    return courses.filter(course =>
-      course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.courseName.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [courses, searchTerm]);
+    // First apply search filter
+    let filtered = courses;
+    if (searchTerm) {
+      filtered = courses.filter(course =>
+        course.courseCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.courseName.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Then sort by department and course number
+    return sortCoursesByDepartmentAndNumber([...filtered]);
+  }, [courses, searchTerm, sortCoursesByDepartmentAndNumber]);
 
   const handleCourseToggle = (courseCode) => {
     const newSelection = selectedCourses.includes(courseCode)
@@ -46,7 +79,11 @@ const CourseSelector = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-              className="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+              className={`p-2 rounded-lg transition-colors ${
+                isDarkMode 
+                  ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' 
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
               title={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
             >
               {viewMode === 'grid' ? (
@@ -65,38 +102,50 @@ const CourseSelector = ({
 
       {/* Selected courses section */}
       {selectedCourses.length > 0 && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+        <div className={`
+          mb-6 p-4 rounded-xl border transition-colors duration-300
+          ${isDarkMode 
+            ? 'bg-gradient-to-r from-blue-900/20 to-indigo-900/20 border-blue-800 backdrop-blur-sm' 
+            : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'
+          }
+        `}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-slate-800">
+            <h3 className={`font-semibold transition-colors duration-300 ${
+              isDarkMode ? 'text-white' : 'text-slate-800'
+            }`}>
               Selected Courses ({selectedCourses.length})
             </h3>
             <button
               onClick={clearAll}
-              className="text-sm text-slate-600 hover:text-slate-800 transition-colors"
+              className={`text-sm transition-colors ${
+                isDarkMode 
+                  ? 'text-slate-300 hover:text-white' 
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
             >
               Clear all
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {selectedCourses.map(courseCode => {
-              const course = courses.find(c => c.courseCode === courseCode);
-              return (
-                <span
-                  key={courseCode}
-                  className="course-tag"
-                >
-                  <span className="font-medium">{courseCode}</span>
-                  <button
-                    onClick={() => handleRemoveCourse(courseCode)}
-                    className="course-tag-remove"
+            {sortCoursesByDepartmentAndNumber([...selectedCourses]).map(courseCode => {
+                const course = courses.find(c => c.courseCode === courseCode);
+                return (
+                  <span
+                    key={courseCode}
+                    className="course-tag"
                   >
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </span>
-              );
-            })}
+                    <span className="font-medium">{courseCode}</span>
+                    <button
+                      onClick={() => handleRemoveCourse(courseCode)}
+                      className="course-tag-remove"
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
+                );
+              })}
           </div>
         </div>
       )}
@@ -138,7 +187,7 @@ const CourseSelector = ({
                     <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
                       selectedCourses.includes(course.courseCode) 
                         ? 'bg-blue-500 border-blue-500' 
-                        : 'border-slate-300'
+                        : (isDarkMode ? 'border-slate-500' : 'border-slate-300')
                     }`}>
                       {selectedCourses.includes(course.courseCode) && (
                         <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -148,10 +197,24 @@ const CourseSelector = ({
                     </div>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-slate-900 text-sm">{course.courseCode}</h4>
-                    <p className="text-slate-600 text-xs mt-1 line-clamp-2">{course.courseName}</p>
+                    <h4 className={`font-semibold text-sm transition-colors duration-300 ${
+                      isDarkMode ? 'text-white' : 'text-slate-900'
+                    }`}>
+                      {course.courseCode}
+                    </h4>
+                    <p className={`text-xs mt-1 line-clamp-2 transition-colors duration-300 ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      {course.courseName}
+                    </p>
                     {course.credits && (
-                      <span className="inline-block mt-2 px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
+                      <span className={`
+                        inline-block mt-2 px-2 py-1 text-xs rounded-md transition-colors duration-300
+                        ${isDarkMode 
+                          ? 'bg-slate-700 text-slate-300' 
+                          : 'bg-slate-100 text-slate-600'
+                        }
+                      `}>
                         {course.credits} credits
                       </span>
                     )}
@@ -168,14 +231,20 @@ const CourseSelector = ({
                 onClick={() => handleCourseToggle(course.courseCode)}
                 className={`flex items-center p-3 rounded-lg border transition-all cursor-pointer ${
                   selectedCourses.includes(course.courseCode)
-                    ? 'bg-blue-50 border-blue-300'
-                    : 'bg-white hover:bg-slate-50 border-slate-200'
+                    ? (isDarkMode 
+                        ? 'bg-blue-900/30 border-blue-600' 
+                        : 'bg-blue-50 border-blue-300'
+                      )
+                    : (isDarkMode 
+                        ? 'bg-slate-800 hover:bg-slate-700 border-slate-700' 
+                        : 'bg-white hover:bg-slate-50 border-slate-200'
+                      )
                 }`}
               >
                 <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center mr-3 transition-colors ${
                   selectedCourses.includes(course.courseCode) 
                     ? 'bg-blue-500 border-blue-500' 
-                    : 'border-slate-300'
+                    : (isDarkMode ? 'border-slate-500' : 'border-slate-300')
                 }`}>
                   {selectedCourses.includes(course.courseCode) && (
                     <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -186,11 +255,25 @@ const CourseSelector = ({
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-slate-900">{course.courseCode}</h4>
-                      <p className="text-slate-600 text-sm">{course.courseName}</p>
+                      <h4 className={`font-semibold transition-colors duration-300 ${
+                        isDarkMode ? 'text-white' : 'text-slate-900'
+                      }`}>
+                        {course.courseCode}
+                      </h4>
+                      <p className={`text-sm transition-colors duration-300 ${
+                        isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                      }`}>
+                        {course.courseName}
+                      </p>
                     </div>
                     {course.credits && (
-                      <span className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md">
+                      <span className={`
+                        px-2 py-1 text-xs rounded-md transition-colors duration-300
+                        ${isDarkMode 
+                          ? 'bg-slate-700 text-slate-300' 
+                          : 'bg-slate-100 text-slate-600'
+                        }
+                      `}>
                         {course.credits} credits
                       </span>
                     )}

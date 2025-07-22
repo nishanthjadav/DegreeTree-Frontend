@@ -1,11 +1,15 @@
 import { useEffect, useRef } from 'react';
 import cytoscape from 'cytoscape';
 import elk from 'cytoscape-elk';
+import nodeHtmlLabel from 'cytoscape-node-html-label';
+import { useTheme } from '../contexts/ThemeContext';
 
-// Register the ELK layout
+// Register the ELK layout and node HTML label extensions
 cytoscape.use(elk);
+cytoscape.use(nodeHtmlLabel);
 
 const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligibleCourses = [], onCourseClick }) => {
+  const { isDarkMode } = useTheme();
   const cyRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -24,10 +28,14 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
 
     if (!courses || courses.length === 0) {
       const noDataMsg = document.createElement('div');
-      noDataMsg.className = 'absolute inset-0 flex items-center justify-center text-center text-gray-500';
+      noDataMsg.className = `absolute inset-0 flex items-center justify-center text-center transition-colors duration-300 ${
+        isDarkMode ? 'text-slate-400' : 'text-gray-500'
+      }`;
       noDataMsg.innerHTML = `
         <div>
-          <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-16 h-16 mx-auto mb-4 ${
+            isDarkMode ? 'text-slate-600' : 'text-gray-300'
+          }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
           <p class="text-lg font-semibold">No course data available</p>
@@ -106,29 +114,45 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
             style: {
               'background-color': (node) => {
                 const status = node.data('status');
-                switch (status) {
-                  case 'completed': return '#22c55e'; // Green
-                  case 'eligible': return '#eab308';  // Yellow
-                  default: return '#9ca3af';          // Grey
+                if (isDarkMode) {
+                  switch (status) {
+                    case 'completed': return '#059669'; // Dark mode green
+                    case 'eligible': return '#d97706';  // Dark mode yellow/orange
+                    default: return '#6b7280';          // Dark mode grey
+                  }
+                } else {
+                  switch (status) {
+                    case 'completed': return '#22c55e'; // Light mode green
+                    case 'eligible': return '#eab308';  // Light mode yellow
+                    default: return '#9ca3af';          // Light mode grey
+                  }
                 }
               },
               'border-width': 2,
               'border-color': (node) => {
                 const status = node.data('status');
-                switch (status) {
-                  case 'completed': return '#16a34a'; // Darker green
-                  case 'eligible': return '#ca8a04';  // Darker yellow
-                  default: return '#6b7280';          // Darker grey
+                if (isDarkMode) {
+                  switch (status) {
+                    case 'completed': return '#047857'; // Darker dark mode green
+                    case 'eligible': return '#b45309';  // Darker dark mode yellow/orange
+                    default: return '#4b5563';          // Darker dark mode grey
+                  }
+                } else {
+                  switch (status) {
+                    case 'completed': return '#16a34a'; // Darker light mode green
+                    case 'eligible': return '#ca8a04';  // Darker light mode yellow
+                    default: return '#6b7280';          // Darker light mode grey
+                  }
                 }
               },
-              'label': 'data(label)',
+              'label': '',
               'text-valign': 'center',
               'text-halign': 'center',
-              'font-size': '12px',
-              'font-weight': 'bold',
+              'font-size': '13px',
+              'font-weight': 'normal',
               'color': '#ffffff',
               'text-outline-width': 1,
-              'text-outline-color': '#000000',
+              'text-outline-color': isDarkMode ? '#000000' : '#000000',
               'width': 70,
               'height': 50,
               'shape': 'round-rectangle'
@@ -138,8 +162,8 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
             selector: 'edge',
             style: {
               'width': 2,
-              'line-color': '#64748b',
-              'target-arrow-color': '#64748b',
+              'line-color': isDarkMode ? '#94a3b8' : '#64748b',
+              'target-arrow-color': isDarkMode ? '#94a3b8' : '#64748b',
               'target-arrow-shape': 'triangle',
               'curve-style': 'bezier',
               'arrow-scale': 1.5
@@ -181,6 +205,29 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
       });
       
       cyRef.current = cy;
+
+      cy.nodeHtmlLabel([
+        {
+          query: 'node',
+          halign: 'center',
+          valign: 'center',
+          tpl: (data) => `
+            <div style="
+              font-size: 14px;
+              font-weight: 600;
+              color: #ffffff;
+              background-color: transparent;
+              text-shadow: 0 0 2px black;
+              padding: 2px 4px;
+              text-align: center;
+              line-height: 1.2;
+              word-break: break-word;
+            ">
+              ${data.courseCode}
+            </div>
+          `
+        }
+      ]);
       
       // Add hover interactions for course details
       cy.on('mouseover', 'node', function(e) {
@@ -197,22 +244,38 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
         // Create tooltip with course information
         const tooltip = document.createElement('div');
         tooltip.id = 'cy-tooltip';
-        tooltip.className = 'absolute bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50 max-w-xs';
+        tooltip.className = `absolute rounded-lg shadow-lg p-3 z-50 max-w-xs transition-colors duration-300 ${
+          isDarkMode 
+            ? 'bg-slate-800 border border-slate-700 text-white' 
+            : 'bg-white border border-gray-200 text-gray-900'
+        }`;
         tooltip.style.left = `${e.renderedPosition.x + 10}px`;
         tooltip.style.top = `${e.renderedPosition.y - 10}px`;
         tooltip.style.pointerEvents = 'none';
         
         const statusText = {
-          'completed': '<span class="text-green-600 font-bold">✓ Completed</span>',
-          'eligible': '<span class="text-yellow-600 font-bold">⚠ Eligible</span>',
-          'ineligible': '<span class="text-gray-600 font-bold">❌ Prerequisites not met</span>'
+          'completed': isDarkMode 
+            ? '<span class="text-green-400 font-bold">✓ Completed</span>'
+            : '<span class="text-green-600 font-bold">✓ Completed</span>',
+          'eligible': isDarkMode 
+            ? '<span class="text-yellow-400 font-bold">⚠ Eligible</span>'
+            : '<span class="text-yellow-600 font-bold">⚠ Eligible</span>',
+          'ineligible': isDarkMode 
+            ? '<span class="text-slate-500 font-bold">❌ Prerequisites not met</span>'
+            : '<span class="text-gray-600 font-bold">❌ Prerequisites not met</span>'
         }[nodeData.status] || '';
         
         tooltip.innerHTML = `
-          <div class="font-bold text-gray-900 mb-1">${nodeData.courseCode}</div>
-          <div class="text-sm text-gray-600 mb-2">${nodeData.fullName}</div>
+          <div class="font-bold mb-1 ${
+            isDarkMode ? 'text-white' : 'text-gray-900'
+          }">${nodeData.courseCode}</div>
+          <div class="text-sm mb-2 ${
+            isDarkMode ? 'text-slate-300' : 'text-gray-600'
+          }">${nodeData.fullName}</div>
           <div class="text-xs">${statusText}</div>
-          ${nodeData.credits > 0 ? `<div class="text-xs text-gray-500 mt-1">${nodeData.credits} credits</div>` : ''}
+          ${nodeData.credits > 0 ? `<div class="text-xs mt-1 ${
+            isDarkMode ? 'text-slate-400' : 'text-gray-500'
+          }">${nodeData.credits} credits</div>` : ''}
         `;
         
         containerRef.current.appendChild(tooltip);
@@ -264,10 +327,14 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
     } catch (error) {
       console.error("Error creating Cytoscape graph:", error);
       const errorMsg = document.createElement('div');
-      errorMsg.className = 'absolute inset-0 flex items-center justify-center text-center text-red-600';
+      errorMsg.className = `absolute inset-0 flex items-center justify-center text-center transition-colors duration-300 ${
+        isDarkMode ? 'text-red-400' : 'text-red-600'
+      }`;
       errorMsg.innerHTML = `
         <div>
-          <svg class="w-16 h-16 mx-auto mb-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-16 h-16 mx-auto mb-4 ${
+            isDarkMode ? 'text-red-500' : 'text-red-500'
+          }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
           <p class="text-lg font-semibold">Graph Creation Error</p>
@@ -282,36 +349,85 @@ const CourseGraph = ({ courses = [], edges = [], completedCourses = [], eligible
         }
       };
     }
-  }, [courses, edges, completedCourses, eligibleCourses, onCourseClick]);
+  }, [courses, edges, completedCourses, eligibleCourses, onCourseClick, isDarkMode]);
 
   return (
-    <div className="relative w-full h-full min-h-[700px] rounded-2xl overflow-hidden border border-slate-200 bg-white">
+    <div className={`
+      relative w-full h-full min-h-[700px] rounded-2xl overflow-hidden border transition-all duration-300
+      ${isDarkMode 
+        ? 'border-slate-700 bg-slate-900/50 backdrop-blur-sm' 
+        : 'border-slate-200 bg-white'
+      }
+    `}>
       <div
         ref={containerRef}
         className="absolute inset-0 w-full h-full"
       />
       
       {/* Legend */}
-      <div className="absolute top-4 right-4 bg-white/95 backdrop-blur-sm p-4 rounded-lg shadow-lg border border-slate-200 z-10">
-        <h4 className="text-sm font-semibold text-slate-900 mb-3">Course Status</h4>
+      <div className={`
+        absolute top-4 right-4 p-4 rounded-lg shadow-lg border z-10 backdrop-blur-sm transition-colors duration-300
+        ${isDarkMode 
+          ? 'bg-slate-800/95 border-slate-700' 
+          : 'bg-white/95 border-slate-200'
+        }
+      `}>
+        <h4 className={`text-sm font-semibold mb-3 transition-colors duration-300 ${
+          isDarkMode ? 'text-white' : 'text-slate-900'
+        }`}>
+          Course Status
+        </h4>
         <div className="space-y-2 text-xs">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded bg-[#22c55e] border border-[#16a34a]"></div>
-            <span className="text-slate-700">Completed</span>
+            <div className={`w-4 h-4 rounded border ${
+              isDarkMode 
+                ? 'bg-[#059669] border-[#047857]' 
+                : 'bg-[#22c55e] border-[#16a34a]'
+            }`}></div>
+            <span className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-slate-300' : 'text-slate-700'
+            }`}>
+              Completed
+            </span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded bg-[#eab308] border border-[#ca8a04]"></div>
-            <span className="text-slate-700">Eligible</span>
+            <div className={`w-4 h-4 rounded border ${
+              isDarkMode 
+                ? 'bg-[#d97706] border-[#b45309]' 
+                : 'bg-[#eab308] border-[#ca8a04]'
+            }`}></div>
+            <span className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-slate-300' : 'text-slate-700'
+            }`}>
+              Eligible
+            </span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded bg-[#9ca3af] border border-[#6b7280]"></div>
-            <span className="text-slate-700">Prerequisites Not Met</span>
+            <div className={`w-4 h-4 rounded border ${
+              isDarkMode 
+                ? 'bg-[#6b7280] border-[#4b5563]' 
+                : 'bg-[#9ca3af] border-[#6b7280]'
+            }`}></div>
+            <span className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-slate-300' : 'text-slate-700'
+            }`}>
+              Prerequisites Not Met
+            </span>
           </div>
         </div>
-        <div className="mt-3 pt-2 border-t border-slate-200">
+        <div className={`
+          mt-3 pt-2 border-t transition-colors duration-300
+          ${isDarkMode ? 'border-slate-600' : 'border-slate-200'}
+        `}>
           <div className="flex items-center space-x-2 text-xs">
-            <div className="w-6 h-[2px] bg-[#64748b]"></div>
-            <span className="text-slate-700">Prerequisite</span>
+            <div className={`w-6 h-[2px] ${
+              isDarkMode ? 'bg-[#94a3b8]' : 'bg-[#64748b]'
+            }`}></div>
+            <span className={`transition-colors duration-300 ${
+              isDarkMode ? 'text-slate-300' : 'text-slate-700'
+            }`}>
+              Prerequisite
+            </span>
           </div>
         </div>
       </div>
