@@ -1,8 +1,14 @@
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from './ThemeToggle';
 
-const Header = () => {
+const Header = ({ activeTab, onTabChange }) => {
   const { isDarkMode } = useTheme();
+
+  const tabs = [
+    { id: 'eligible', label: 'Eligible Courses' },
+    { id: 'planner', label: 'Schedule Planner' },
+    { id: 'about', label: 'About' }
+  ];
 
   return (
     <header className={`shadow-xl transition-colors duration-300 ${
@@ -54,9 +60,35 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Right side - Theme Toggle */}
-          <div className="flex items-center space-x-4">
-            <ThemeToggle />
+          {/* Right side - Navigation and Theme Toggle */}
+          <div className="flex items-center space-x-6">
+            {/* Navigation Tabs */}
+            <div className="flex items-center space-x-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => onTabChange(tab.id)}
+                  className={`
+                    px-6 py-2.5 rounded-lg font-medium transition-all duration-300 text-sm
+                    ${activeTab === tab.id
+                      ? (isDarkMode 
+                          ? 'bg-white/20 text-white shadow-lg backdrop-blur-sm' 
+                          : 'bg-white/25 text-white shadow-lg backdrop-blur-sm')
+                      : (isDarkMode 
+                          ? 'text-slate-300 hover:text-white hover:bg-white/10' 
+                          : 'text-blue-100 hover:text-white hover:bg-white/15')
+                    }
+                  `}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Theme Toggle */}
+            <div className="flex items-center">
+              <ThemeToggle />
+            </div>
           </div>
         </div>
       </div>
